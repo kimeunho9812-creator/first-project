@@ -98,7 +98,7 @@ def calculate_alpha():
         results_log.append({
             "문항명": base_name,
             "문항 수": len(columns),
-            "Cronbach’s α": round(alpha_value, 3),
+            "Cronbach_alpha": round(alpha_value, 3),
             "문항 제거 시 알파 값": {k: round(v, 3) for k, v in removed_alpha_values.items()}
         })
         update_results_log()
@@ -122,8 +122,8 @@ def update_results_log():
     for i, result in enumerate(results_log, 1):
         text_log.insert(tk.END, f"[{i}] 변수: {result['문항명']}\n")
         text_log.insert(tk.END, f"    문항 수: {result['문항 수']}\n")
-        text_log.insert(tk.END, f"    Cronbach’s α: {result['Cronbach’s α']:.3f}\n")
-        text_log.insert(tk.END, f"    문항 제거 시 Cronbach’s α:\n")
+        text_log.insert(tk.END, f"    Cronbach's α: {result['Cronbach_alpha']:.3f}\n")
+        text_log.insert(tk.END, f"    문항 제거 시 Cronbach's α:\n")
         for col, value in result['문항 제거 시 알파 값'].items():
             text_log.insert(tk.END, f"        {col}: {value:.3f}\n")
         text_log.insert(tk.END, "\n")
@@ -141,60 +141,161 @@ def save_results_to_excel_custom():
     try:
         rows = []
         for result in results_log:
-            rows.append({
+            # 기본 정보
+            row_data = {
                 "변수": result["문항명"],
                 "문항 수": result["문항 수"],
-                "Cronbach’s α": result["Cronbach’s α"]
-            })
+                "Cronbach_alpha": result["Cronbach_alpha"]
+            }
+
+            # 각 문항 제거 시 알파 값을 추가
+            for item_name, alpha_value in result["문항 제거 시 알파 값"].items():
+                row_data[f"{item_name}_제거시"] = alpha_value
+
+            rows.append(row_data)
 
         df_results = pd.DataFrame(rows)
-        df_results.to_excel(save_path, index=False)
+
+        # 컬럼명을 보기 좋게 변경 (저장 직전)
+        column_rename = {"Cronbach_alpha": "Cronbach's α"}
+        for col in df_results.columns:
+            if col.endswith("_제거시"):
+                original_col = col.replace("_제거시", " 제거 시")
+                column_rename[col] = original_col
+
+        df_results.rename(columns=column_rename, inplace=True)
+        df_results.to_excel(save_path, index=False, engine='openpyxl')
         messagebox.showinfo("성공", f"결과가 {save_path}에 저장되었습니다.")
     except Exception as e:
-        messagebox.showerror("오류", f"결과 저장 중 오류가 발생했습니다:\n{e}")
+        import traceback
+        error_detail = traceback.format_exc()
+        messagebox.showerror("오류", f"결과 저장 중 오류가 발생했습니다:\n{e}\n\n상세:\n{error_detail}")
 
 # Tkinter GUI 설정
 root = tk.Tk()
 root.title("신뢰도 분석 (크론바흐 알파)")
+root.geometry("900x850")
+root.configure(bg="#f5f5f5")
 
-# 엑셀 파일 선택
-frame_file = tk.Frame(root)
-frame_file.pack(pady=5)
-tk.Label(frame_file, text="엑셀 파일 경로:").pack(side=tk.LEFT)
-entry_file_path = tk.Entry(frame_file, width=50)
-entry_file_path.pack(side=tk.LEFT, padx=5)
-btn_browse = tk.Button(frame_file, text="찾아보기", command=select_file)
-btn_browse.pack(side=tk.LEFT)
+# 색상 및 폰트 설정
+COLOR_BG = "#f5f5f5"
+COLOR_PRIMARY = "#2c3e50"
+COLOR_SECONDARY = "#3498db"
+COLOR_SUCCESS = "#27ae60"
+COLOR_ACCENT = "#e74c3c"
+COLOR_WHITE = "#ffffff"
+COLOR_LIGHT_GRAY = "#ecf0f1"
+COLOR_TEXT = "#2c3e50"
 
-# 문항 입력
-frame_columns = tk.Frame(root)
-frame_columns.pack(pady=5)
-tk.Label(frame_columns, text="문항명 (쉼표로 구분, 범위 입력 지원):").pack(side=tk.LEFT)
-entry_columns = tk.Entry(frame_columns, width=50)
-entry_columns.pack(side=tk.LEFT, padx=5)
+FONT_TITLE = ("맑은 고딕", 11, "bold")
+FONT_NORMAL = ("맑은 고딕", 10)
+FONT_SMALL = ("맑은 고딕", 9)
 
-# 추천 문항 표시
-frame_recommendations = tk.Frame(root)
-frame_recommendations.pack(pady=5)
-tk.Label(frame_recommendations, text="문항 리스트:").pack(anchor="w")
-listbox_recommendations = tk.Listbox(frame_recommendations, width=50, height=10, selectmode=tk.EXTENDED)
-listbox_recommendations.pack()
+# 메인 컨테이너
+main_container = tk.Frame(root, bg=COLOR_BG)
+main_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+
+# ==================== 파일 선택 섹션 ====================
+file_frame = tk.LabelFrame(main_container, text=" 1. 데이터 파일 선택 ",
+                           font=FONT_TITLE, bg=COLOR_WHITE, fg=COLOR_PRIMARY,
+                           padx=15, pady=15, relief=tk.RIDGE, borderwidth=2)
+file_frame.pack(fill=tk.X, pady=(0, 10))
+
+tk.Label(file_frame, text="엑셀 파일:", font=FONT_NORMAL, bg=COLOR_WHITE, fg=COLOR_TEXT).grid(
+    row=0, column=0, sticky="w", padx=(0, 10))
+entry_file_path = tk.Entry(file_frame, width=60, font=FONT_NORMAL,
+                           relief=tk.SOLID, borderwidth=1)
+entry_file_path.grid(row=0, column=1, padx=(0, 10), ipady=5)
+btn_browse = tk.Button(file_frame, text="📁 찾아보기", command=select_file,
+                       font=FONT_NORMAL, bg=COLOR_SECONDARY, fg=COLOR_WHITE,
+                       relief=tk.FLAT, padx=15, pady=5, cursor="hand2",
+                       activebackground="#2980b9", activeforeground=COLOR_WHITE)
+btn_browse.grid(row=0, column=2)
+
+# ==================== 문항 입력 섹션 ====================
+input_frame = tk.LabelFrame(main_container, text=" 2. 분석 문항 선택 ",
+                            font=FONT_TITLE, bg=COLOR_WHITE, fg=COLOR_PRIMARY,
+                            padx=15, pady=15, relief=tk.RIDGE, borderwidth=2)
+input_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+# 문항명 입력
+tk.Label(input_frame, text="선택된 문항:", font=FONT_NORMAL, bg=COLOR_WHITE, fg=COLOR_TEXT).pack(
+    anchor="w", pady=(0, 5))
+entry_columns = tk.Entry(input_frame, font=FONT_NORMAL, relief=tk.SOLID, borderwidth=1)
+entry_columns.pack(fill=tk.X, ipady=5, pady=(0, 10))
+
+tk.Label(input_frame, text="💡 Tip: 쉼표로 구분하거나, 범위 입력 지원 (예: 희망1 to 희망6)",
+         font=FONT_SMALL, bg=COLOR_WHITE, fg="#7f8c8d").pack(anchor="w", pady=(0, 10))
+
+# 문항 리스트 (스크롤바 포함)
+tk.Label(input_frame, text="문항 리스트 (더블클릭으로 선택):", font=FONT_NORMAL,
+         bg=COLOR_WHITE, fg=COLOR_TEXT).pack(anchor="w", pady=(0, 5))
+
+listbox_frame = tk.Frame(input_frame, bg=COLOR_WHITE)
+listbox_frame.pack(fill=tk.BOTH, expand=True)
+
+scrollbar_list = tk.Scrollbar(listbox_frame, orient=tk.VERTICAL)
+scrollbar_list.pack(side=tk.RIGHT, fill=tk.Y)
+
+listbox_recommendations = tk.Listbox(listbox_frame, font=FONT_NORMAL,
+                                     selectmode=tk.EXTENDED, relief=tk.SOLID,
+                                     borderwidth=1, yscrollcommand=scrollbar_list.set,
+                                     selectbackground=COLOR_SECONDARY,
+                                     selectforeground=COLOR_WHITE)
+listbox_recommendations.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_list.config(command=listbox_recommendations.yview)
 listbox_recommendations.bind("<Double-Button-1>", add_multiple_selected_recommendations)
 
-# 분석 버튼 & 저장 버튼
-btn_analyze = tk.Button(root, text="분석 실행", command=calculate_alpha, bg="blue", fg="white")
-btn_analyze.pack(pady=10)
-btn_save = tk.Button(root, text="결과 저장", command=save_results_to_excel_custom, bg="green", fg="white")
-btn_save.pack(pady=10)
+# ==================== 버튼 섹션 ====================
+button_frame = tk.Frame(main_container, bg=COLOR_BG)
+button_frame.pack(fill=tk.X, pady=(0, 10))
 
-# 결과 창 추가
-tk.Label(root, text="결과:").pack()
-text_result = tk.Text(root, width=80, height=5)
-text_result.pack()
+btn_analyze = tk.Button(button_frame, text="🔍 분석 실행", command=calculate_alpha,
+                        font=("맑은 고딕", 11, "bold"), bg=COLOR_SECONDARY, fg=COLOR_WHITE,
+                        relief=tk.FLAT, padx=30, pady=10, cursor="hand2",
+                        activebackground="#2980b9", activeforeground=COLOR_WHITE)
+btn_analyze.pack(side=tk.LEFT, padx=(0, 10))
 
-# 로그 창 추가
-tk.Label(root, text="결과 로그:").pack()
-text_log = tk.Text(root, width=80, height=10, bg="#f0f0f0")
-text_log.pack()
+btn_save = tk.Button(button_frame, text="💾 결과 저장", command=save_results_to_excel_custom,
+                     font=("맑은 고딕", 11, "bold"), bg=COLOR_SUCCESS, fg=COLOR_WHITE,
+                     relief=tk.FLAT, padx=30, pady=10, cursor="hand2",
+                     activebackground="#229954", activeforeground=COLOR_WHITE)
+btn_save.pack(side=tk.LEFT)
+
+# ==================== 현재 분석 결과 섹션 ====================
+result_frame = tk.LabelFrame(main_container, text=" 3. 현재 분석 결과 ",
+                             font=FONT_TITLE, bg=COLOR_WHITE, fg=COLOR_PRIMARY,
+                             padx=15, pady=15, relief=tk.RIDGE, borderwidth=2)
+result_frame.pack(fill=tk.X, pady=(0, 10))
+
+result_text_frame = tk.Frame(result_frame, bg=COLOR_WHITE)
+result_text_frame.pack(fill=tk.BOTH, expand=True)
+
+scrollbar_result = tk.Scrollbar(result_text_frame, orient=tk.VERTICAL)
+scrollbar_result.pack(side=tk.RIGHT, fill=tk.Y)
+
+text_result = tk.Text(result_text_frame, font=FONT_NORMAL, height=6,
+                      relief=tk.SOLID, borderwidth=1, bg=COLOR_LIGHT_GRAY,
+                      yscrollcommand=scrollbar_result.set, wrap=tk.WORD)
+text_result.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_result.config(command=text_result.yview)
+
+# ==================== 전체 결과 로그 섹션 ====================
+log_frame = tk.LabelFrame(main_container, text=" 4. 전체 결과 로그 ",
+                          font=FONT_TITLE, bg=COLOR_WHITE, fg=COLOR_PRIMARY,
+                          padx=15, pady=15, relief=tk.RIDGE, borderwidth=2)
+log_frame.pack(fill=tk.BOTH, expand=True)
+
+log_text_frame = tk.Frame(log_frame, bg=COLOR_WHITE)
+log_text_frame.pack(fill=tk.BOTH, expand=True)
+
+scrollbar_log = tk.Scrollbar(log_text_frame, orient=tk.VERTICAL)
+scrollbar_log.pack(side=tk.RIGHT, fill=tk.Y)
+
+text_log = tk.Text(log_text_frame, font=FONT_NORMAL,
+                   relief=tk.SOLID, borderwidth=1, bg=COLOR_LIGHT_GRAY,
+                   yscrollcommand=scrollbar_log.set, wrap=tk.WORD)
+text_log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_log.config(command=text_log.yview)
 
 root.mainloop()
