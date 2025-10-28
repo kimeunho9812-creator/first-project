@@ -51,12 +51,12 @@ def update_recommendations():
     for col in column_names:
         listbox_recommendations.insert(tk.END, col)
 
-def add_multiple_selected_recommendations(event):
-    """Shift 키를 이용한 다중 선택 추가"""
+def add_multiple_selected_recommendations(event=None):
+    """Shift 키를 이용한 다중 선택 추가 (더블클릭 또는 선택 버튼)"""
     selected_items = listbox_recommendations.curselection()
     selected_columns = [listbox_recommendations.get(i) for i in selected_items]
 
-    current_text = entry_columns.get()
+    current_text = entry_columns.get("1.0", tk.END).strip()
     new_text = ", ".join(selected_columns)
 
     if current_text:
@@ -67,7 +67,7 @@ def add_multiple_selected_recommendations(event):
 def calculate_alpha():
     """신뢰도 분석 및 결과 계산"""
     file_path = entry_file_path.get()
-    selected_columns = entry_columns.get().strip()
+    selected_columns = entry_columns.get("1.0", tk.END).strip()
 
     if not file_path:
         messagebox.showerror("오류", "엑셀 파일을 선택하세요!")
@@ -111,7 +111,7 @@ def calculate_alpha():
         text_result.delete(1.0, tk.END)
         text_result.insert(tk.END, result_text)
 
-        entry_columns.delete(0, tk.END)
+        entry_columns.delete("1.0", tk.END)
 
     except Exception as e:
         messagebox.showerror("오류", f"분석 중 오류가 발생했습니다:\n{e}")
@@ -218,18 +218,26 @@ input_frame = tk.LabelFrame(main_container, text=" 2. 분석 문항 선택 ",
                             padx=15, pady=15, relief=tk.RIDGE, borderwidth=2)
 input_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-# 문항명 입력
+# 문항명 입력 (Text 위젯으로 변경하여 여러 줄 표시)
 tk.Label(input_frame, text="선택된 문항:", font=FONT_NORMAL, bg=COLOR_WHITE, fg=COLOR_TEXT).pack(
     anchor="w", pady=(0, 5))
-entry_columns = tk.Entry(input_frame, font=FONT_NORMAL, relief=tk.SOLID, borderwidth=1)
-entry_columns.pack(fill=tk.X, ipady=5, pady=(0, 10))
 
-tk.Label(input_frame, text="💡 Tip: 쉼표로 구분하거나, 범위 입력 지원 (예: 희망1 to 희망6)",
-         font=FONT_SMALL, bg=COLOR_WHITE, fg="#7f8c8d").pack(anchor="w", pady=(0, 10))
+# Text 위젯 + 스크롤바
+entry_columns_frame = tk.Frame(input_frame, bg=COLOR_WHITE)
+entry_columns_frame.pack(fill=tk.X, pady=(0, 10))
+
+scrollbar_columns = tk.Scrollbar(entry_columns_frame, orient=tk.VERTICAL)
+scrollbar_columns.pack(side=tk.RIGHT, fill=tk.Y)
+
+entry_columns = tk.Text(entry_columns_frame, font=FONT_NORMAL, relief=tk.SOLID,
+                        borderwidth=1, height=4, wrap=tk.WORD,
+                        yscrollcommand=scrollbar_columns.set)
+entry_columns.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_columns.config(command=entry_columns.yview)
 
 # 문항 리스트 (스크롤바 포함)
-tk.Label(input_frame, text="문항 리스트 (더블클릭으로 선택):", font=FONT_NORMAL,
-         bg=COLOR_WHITE, fg=COLOR_TEXT).pack(anchor="w", pady=(0, 5))
+tk.Label(input_frame, text="문항 리스트 (다중 선택 가능):", font=FONT_NORMAL,
+         bg=COLOR_WHITE, fg=COLOR_TEXT).pack(anchor="w", pady=(10, 5))
 
 listbox_frame = tk.Frame(input_frame, bg=COLOR_WHITE)
 listbox_frame.pack(fill=tk.BOTH, expand=True)
@@ -245,6 +253,19 @@ listbox_recommendations = tk.Listbox(listbox_frame, font=FONT_NORMAL,
 listbox_recommendations.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 scrollbar_list.config(command=listbox_recommendations.yview)
 listbox_recommendations.bind("<Double-Button-1>", add_multiple_selected_recommendations)
+
+# '선택' 버튼 추가
+btn_select_frame = tk.Frame(input_frame, bg=COLOR_WHITE)
+btn_select_frame.pack(fill=tk.X, pady=(10, 0))
+
+btn_select = tk.Button(btn_select_frame, text="✓ 선택", command=add_multiple_selected_recommendations,
+                       font=FONT_NORMAL, bg=COLOR_SECONDARY, fg=COLOR_WHITE,
+                       relief=tk.FLAT, padx=20, pady=8, cursor="hand2",
+                       activebackground="#2980b9", activeforeground=COLOR_WHITE)
+btn_select.pack(side=tk.RIGHT)
+
+tk.Label(btn_select_frame, text="💡 Tip: 문항을 Shift/Ctrl로 다중 선택 후, 더블클릭 또는 '선택' 버튼 클릭",
+         font=FONT_SMALL, bg=COLOR_WHITE, fg="#7f8c8d").pack(side=tk.LEFT)
 
 # ==================== 버튼 섹션 ====================
 button_frame = tk.Frame(main_container, bg=COLOR_BG)
